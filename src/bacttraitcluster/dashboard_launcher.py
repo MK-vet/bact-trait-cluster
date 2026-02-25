@@ -23,7 +23,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         import marimo  # noqa: F401
     except Exception:
-        print("marimo is not installed. Install: pip install 'bact-trait-cluster[gui]'", file=sys.stderr)
+        print(
+            "marimo is not installed. Install: pip install 'bact-trait-cluster[gui]'",
+            file=sys.stderr,
+        )
         return 2
 
     mode = "edit" if args.edit else "run"

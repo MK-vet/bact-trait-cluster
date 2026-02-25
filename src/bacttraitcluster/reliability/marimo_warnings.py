@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import json
@@ -27,7 +26,9 @@ def load_warning_payload(results_dir: str | Path) -> Dict[str, object]:
     return out
 
 
-def collect_warnings_for_tools(tool_results_dirs: Dict[str, str | Path]) -> List[Dict[str, object]]:
+def collect_warnings_for_tools(
+    tool_results_dirs: Dict[str, str | Path],
+) -> List[Dict[str, object]]:
     payloads = []
     for tool, p in tool_results_dirs.items():
         pl = load_warning_payload(p)
