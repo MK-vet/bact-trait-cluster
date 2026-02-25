@@ -1,0 +1,16 @@
+cluster:
+  path: /mnt/data/ssuis_prod_outputs/cluster/integrated_clusters.csv
+  label_col: Cluster
+  id_col: Strain_ID
+phylocluster:
+  path: /mnt/data/ssuis_prod_outputs/phylocluster/clusters_tree_aware.csv
+  label_col: Cluster
+  id_col: Strain_ID
+network:
+  path: /mnt/data/ssuis_prod_outputs/network/community_labels.csv
+  label_col: Community
+  id_col: Strain_ID
+mdr:
+  path: /mnt/data/ssuis_prod_outputs/mdr/mdr_class_labels.csv
+  label_col: MDR_Class
+  id_col: Strain_ID

@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "bact-trait-cluster"
+version: "1.0.0"
+date-released: "2026-01-01"
+authors:
+  - given-names: Maciej
+    family-names: Kochanowski
+    affiliation: "National Veterinary Research Institute (PIWet-PIB), Department of Bacteriology and Bacterial Diseases of Animals, Pulawy, Poland"
+    email: "m.kochanowski@piwet.pulawy.pl"
+license: MIT
+repository-code: "https://github.com/MK-vet/bact-trait-cluster"

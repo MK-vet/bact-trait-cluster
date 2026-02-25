@@ -1,0 +1,15 @@
+min_jaccard_warn: 0.15
+min_jaccard_fail: 0.03
+max_missing_id_fraction_warn: 0.02
+max_duplicate_id_fraction_warn: 0.02
+min_samples: 20
+sensitivity:
+  enabled: true
+  n_runs: 10
+  subsample_fraction: 0.8
+  random_state: 42
+fail_fast_on_quality_gate_fail: true
+notes:
+  - Prefer canonical strain ID column across all layers (e.g., Strain_ID)
+  - Run preflight before heavy bootstrap/network/phylo analyses
+  - Review feature_informativeness/*.csv for near-constant metadata layers (MLST/Serotype coding issues)

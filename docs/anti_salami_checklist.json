@@ -1,0 +1,12 @@
+{
+    "tool": "bact-trait-cluster",
+    "version": "1.0.0",
+    "novelty_axis": "Consensus clustering + multi-view similarity fusion + stability diagnostics (NVI/ARI) for binary genotype-phenotype matrices",
+    "scope_boundary": "No pairwise association inference; no MDR ontology/hypergraph; no phylogenetic comparative models",
+    "methodological_uniqueness": "Bootstrap consensus matrix (Monti 2003), NVI stability paths (Meila 2007), persistent homology on Hamming-distance Vietoris-Rips complex, SHAP with bootstrap CI, Cliff delta effect size",
+    "softwarex_positioning": {
+        "primary_user_story": "Clustering/fusion/stability for binary multi-layer strain profiles",
+        "reusable_beyond_strepsuis": true,
+        "domain_adaptation_via_gui_and_config": true
+    }
+}

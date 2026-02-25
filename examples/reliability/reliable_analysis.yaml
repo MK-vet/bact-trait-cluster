@@ -1,0 +1,11 @@
+min_jaccard_warn: 0.20
+min_jaccard_fail: 0.05
+max_missing_id_fraction_warn: 0.05
+max_duplicate_id_fraction_warn: 0.05
+min_samples: 10
+sensitivity:
+  enabled: false
+  n_runs: 8
+  subsample_fraction: 0.8
+  random_state: 42
+fail_fast_on_quality_gate_fail: true

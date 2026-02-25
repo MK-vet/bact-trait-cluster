@@ -1,0 +1,41 @@
+# TEMPLATE — edit paths before use.
+# Replace /mnt/data/ with the actual directory containing your CSV files.
+# Example: path: /home/user/project/data/MIC.csv
+# Real-data config (schema_version 1.1)
+schema_version: "1.1"
+layers:
+  - name: MIC
+    path: /mnt/data/MIC.csv
+    id_column: Strain_ID
+  - name: AMR_genes
+    path: /mnt/data/AMR_genes.csv
+    id_column: Strain_ID
+  - name: Virulence
+    path: /mnt/data/Virulence.csv
+    id_column: Strain_ID
+  - name: MGE
+    path: /mnt/data/MGE.csv
+    id_column: Strain_ID
+  - name: Plasmid
+    path: /mnt/data/Plasmid.csv
+    id_column: Strain_ID
+
+output_dir: /mnt/data/ssuis_smoke_out/cluster
+
+consensus:
+  # kmodes is optional; if not installed it will be skipped automatically
+  algorithms: [kmodes, spectral_jaccard, agglomerative_hamming]
+  k_range: [2, 3, 4]
+  n_consensus_runs: 20
+  subsample_fraction: 0.8
+  n_stability_splits: 5
+
+profiling:
+  shap_enabled: false
+  tda_enabled: false
+  effect_size_bootstrap: 50
+
+fdr_method: fdr_bh
+alpha: 0.05
+n_jobs: 1
+seed: 42

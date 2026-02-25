@@ -1,0 +1,15 @@
+min_jaccard_warn: 0.95
+min_jaccard_fail: 0.9
+max_missing_id_fraction_warn: 0.01
+max_duplicate_id_fraction_warn: 0.01
+min_samples: 50
+sensitivity:
+  enabled: true
+  n_runs: 20
+  subsample_fraction: 0.85
+  random_state: 42
+fail_fast_on_quality_gate_fail: true
+notes:
+- Use only after converting all layers (including MGE/Plasmid) to one-row-per-strain
+  wide matrices.
+- This preset is intentionally incompatible with long-format MGE/Plasmid tables.

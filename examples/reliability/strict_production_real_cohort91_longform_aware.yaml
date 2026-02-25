@@ -1,0 +1,21 @@
+min_jaccard_warn: 0.16
+min_jaccard_fail: 0.119
+max_missing_id_fraction_warn: 0.01
+max_duplicate_id_fraction_warn: 0.259
+min_samples: 24
+sensitivity:
+  enabled: true
+  n_runs: 20
+  subsample_fraction: 0.85
+  random_state: 42
+fail_fast_on_quality_gate_fail: true
+notes:
+- Strict production preset tuned to uploaded real cohort (2026-02-21; n_core=91 strains).
+- MGE and Plasmid are long-format layers (multiple rows per Strain_ID), so duplicate-ID
+  threshold is long-form aware.
+- Observed minimum pairwise Jaccard across supplied layers + tree IDs = 0.164 (MGE
+  vs Plasmid).
+- Observed maximum duplicate-ID row fraction among supplied tabular layers = 0.229
+  (MGE).
+- For stricter duplicate-ID QC, pivot MGE/Plasmid to one-row-per-Strain_ID wide matrices
+  before preflight.

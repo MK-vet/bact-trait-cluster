@@ -1,0 +1,16 @@
+cluster:
+  path: results/cluster/integrated_clusters.csv
+  label_col: Cluster
+  id_col: Strain_ID
+phylocluster:
+  path: results/phylocluster/clusters_tree_aware.csv
+  label_col: Cluster
+  id_col: Strain_ID
+# network:
+#   path: results/network/community_labels.csv
+#   label_col: Community
+#   id_col: Strain_ID
+# mdr:
+#   path: results/mdr/mdr_class_labels.csv
+#   label_col: MDR_Class
+#   id_col: Strain_ID
