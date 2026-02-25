@@ -21,6 +21,7 @@ Monti et al. (2003) Machine Learning 52:91.
 Meilă (2007) J Multivariate Anal 98:873.
 Șenbabaoğlu et al. (2014) Sci Rep 4:6207.
 """
+
 from __future__ import annotations
 
 
@@ -40,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 # ── distance / kernel for binary data ────────────────────────────────────
 
+
 def jaccard_kernel(X: np.ndarray) -> np.ndarray:
     """Jaccard similarity kernel for binary (n × p) matrix."""
     X = X.astype(np.float32)
@@ -48,30 +50,41 @@ def jaccard_kernel(X: np.ndarray) -> np.ndarray:
     union = np.maximum(sums + sums.T - inter, 1)
     return inter / union
 
+
 def hamming_distance(X: np.ndarray) -> np.ndarray:
     """Normalised Hamming distance matrix."""
     return squareform(pdist(X, metric="hamming"))
 
+
 # ── single-algorithm clusterers ──────────────────────────────────────────
+
 
 def _cluster_kmodes(X: np.ndarray, k: int, seed: int) -> np.ndarray:
     try:
         from kmodes.kmodes import KModes
     except Exception as e:
         raise ImportError(
-            'kmodes is not installed. Install optional extra: pip install bact-trait-cluster[kmodes]'
+            "kmodes is not installed. Install optional extra: pip install bact-trait-cluster[kmodes]"
         ) from e
-    return KModes(n_clusters=k, init="Huang", n_init=5, random_state=seed).fit_predict(X)
+    return KModes(n_clusters=k, init="Huang", n_init=5, random_state=seed).fit_predict(
+        X
+    )
+
 
 def _cluster_spectral_jaccard(X: np.ndarray, k: int, seed: int) -> np.ndarray:
-    K = jaccard_kernel(X); np.fill_diagonal(K, 1.0)
-    return SpectralClustering(n_clusters=k, affinity="precomputed",
-                              random_state=seed, assign_labels="kmeans").fit_predict(K)
+    K = jaccard_kernel(X)
+    np.fill_diagonal(K, 1.0)
+    return SpectralClustering(
+        n_clusters=k, affinity="precomputed", random_state=seed, assign_labels="kmeans"
+    ).fit_predict(K)
+
 
 def _cluster_agglom_hamming(X: np.ndarray, k: int, seed: int) -> np.ndarray:
     D = hamming_distance(X)
-    return AgglomerativeClustering(n_clusters=k, metric="precomputed",
-                                   linkage="average").fit_predict(D)
+    return AgglomerativeClustering(
+        n_clusters=k, metric="precomputed", linkage="average"
+    ).fit_predict(D)
+
 
 _REGISTRY: Dict[str, Callable] = {
     "kmodes": _cluster_kmodes,
@@ -79,31 +92,37 @@ _REGISTRY: Dict[str, Callable] = {
     "agglomerative_hamming": _cluster_agglom_hamming,
 }
 
-def validate_algorithms(algorithms: List[str]) -> Tuple[List[str], List[Dict[str, str]]]:
+
+def validate_algorithms(
+    algorithms: List[str],
+) -> Tuple[List[str], List[Dict[str, str]]]:
     """Validate algorithm list and return (used, missing) with reasons.
 
     Missing algorithms are not fatal here; the pipeline decides whether to proceed.
     """
     used: List[str] = []
     missing: List[Dict[str, str]] = []
-    for a in (algorithms or []):
+    for a in algorithms or []:
         if a not in _REGISTRY:
-            missing.append({'algo': str(a), 'reason': 'unknown_algorithm'})
+            missing.append({"algo": str(a), "reason": "unknown_algorithm"})
             continue
-        if a == 'kmodes':
+        if a == "kmodes":
             try:
                 import kmodes  # noqa: F401
             except Exception as e:
-                missing.append({'algo': 'kmodes', 'reason': f'missing_dependency: {e}'})
+                missing.append({"algo": "kmodes", "reason": f"missing_dependency: {e}"})
                 continue
         used.append(a)
     return used, missing
+
 
 def register_algorithm(name: str, fn: Callable) -> None:
     """Register custom clustering function ``fn(X, k, seed) → labels``."""
     _REGISTRY[name] = fn
 
+
 # ── consensus matrix ─────────────────────────────────────────────────────
+
 
 def consensus_matrix(
     X: np.ndarray,
@@ -123,8 +142,8 @@ def consensus_matrix(
         idx = rng.choice(n, n_sub, replace=False)
         Xs = X[idx]
         cc = np.zeros((n, n), dtype=np.float32)
-        cs = np.zeros((n, n), dtype=np.float32)
-        mask = np.zeros(n, dtype=bool); mask[idx] = True
+        mask = np.zeros(n, dtype=bool)
+        mask[idx] = True
         cs_local = np.outer(mask, mask).astype(np.float32)
         for algo in algorithms:
             fn = _REGISTRY[algo]
@@ -142,6 +161,7 @@ def consensus_matrix(
     co_c = sum(r[0] for r in results)
     co_s = sum(r[1] for r in results)
     return co_c / np.maximum(co_s, 1)
+
 
 def consensus_labels(M: np.ndarray, k: int) -> np.ndarray:
     """Hierarchical clustering on ``1 − M`` to derive final labels.
@@ -163,40 +183,61 @@ def consensus_labels(M: np.ndarray, k: int) -> np.ndarray:
     if len(u) < min(int(k), M.shape[0]):
         # deterministic tie-break: spectral clustering on consensus similarity
         from sklearn.cluster import SpectralClustering
+
         K = np.clip(M, 0.0, 1.0).copy()
         np.fill_diagonal(K, 1.0)
-        labs = SpectralClustering(n_clusters=int(k), affinity="precomputed", random_state=42,
-                                  assign_labels="kmeans").fit_predict(K) + 1
+        labs = (
+            SpectralClustering(
+                n_clusters=int(k),
+                affinity="precomputed",
+                random_state=42,
+                assign_labels="kmeans",
+            ).fit_predict(K)
+            + 1
+        )
     return labs.astype(int)
 
+
 # ── Variation of Information ─────────────────────────────────────────────
+
 
 def variation_of_information(a: np.ndarray, b: np.ndarray) -> float:
     """VI(A, B) = H(A) + H(B) − 2·I(A;B). Meilă (2007)."""
     n = len(a)
-    if n == 0: return 0.0
+    if n == 0:
+        return 0.0
+
     def _h(lab):
         _, c = np.unique(lab, return_counts=True)
-        p = c / n; return -np.sum(p * np.log(p + 1e-15))
+        p = c / n
+        return -np.sum(p * np.log(p + 1e-15))
+
     ct = pd.crosstab(pd.Series(a, name="a"), pd.Series(b, name="b"), normalize=True)
     mi = 0.0
     for i in range(ct.shape[0]):
         for j in range(ct.shape[1]):
             pij = ct.iloc[i, j]
             if pij > 0:
-                mi += pij * np.log(pij / (ct.sum(axis=1).iloc[i] * ct.sum(axis=0).iloc[j] + 1e-15) + 1e-15)
+                mi += pij * np.log(
+                    pij / (ct.sum(axis=1).iloc[i] * ct.sum(axis=0).iloc[j] + 1e-15)
+                    + 1e-15
+                )
     return _h(a) + _h(b) - 2 * mi
+
 
 def nvi(a: np.ndarray, b: np.ndarray) -> float:
     """Normalised VI: VI / log(n). Range [0, ~1]."""
     n = len(a)
     return variation_of_information(a, b) / np.log(max(n, 2))
 
+
 # ── stability path ───────────────────────────────────────────────────────
+
 
 @dataclass
 class KResult:
     """Evaluation result for one value of *k*."""
+
     k: int
     mean_nvi: float
     std_nvi: float
@@ -205,6 +246,7 @@ class KResult:
     silhouette: float
     M: np.ndarray
     labels: np.ndarray
+
 
 def stability_path(
     X: np.ndarray,
@@ -225,17 +267,33 @@ def stability_path(
         vis = []
         half = max(n_runs // 2, 10)
         for s in range(n_splits):
-            M1 = consensus_matrix(X, k, algorithms, half, frac, seed + s * 10000, n_jobs)
-            M2 = consensus_matrix(X, k, algorithms, half, frac, seed + s * 10000 + half, n_jobs)
+            M1 = consensus_matrix(
+                X, k, algorithms, half, frac, seed + s * 10000, n_jobs
+            )
+            M2 = consensus_matrix(
+                X, k, algorithms, half, frac, seed + s * 10000 + half, n_jobs
+            )
             vis.append(nvi(consensus_labels(M1, k), consensus_labels(M2, k)))
         va = np.array(vis)
         D = hamming_distance(X)
-        try: sil = silhouette_score(D, labels, metric="precomputed")
-        except ValueError: sil = -1.0
-        out.append(KResult(k, float(va.mean()), float(va.std()),
-                           float(np.percentile(va, 2.5)), float(np.percentile(va, 97.5)),
-                           sil, M, labels))
+        try:
+            sil = silhouette_score(D, labels, metric="precomputed")
+        except ValueError:
+            sil = -1.0
+        out.append(
+            KResult(
+                k,
+                float(va.mean()),
+                float(va.std()),
+                float(np.percentile(va, 2.5)),
+                float(np.percentile(va, 97.5)),
+                sil,
+                M,
+                labels,
+            )
+        )
     return out
+
 
 def select_k(results: List[KResult]) -> KResult:
     """Select *k* with anti-degeneracy penalty, then stability, then silhouette.
@@ -249,11 +307,13 @@ def select_k(results: List[KResult]) -> KResult:
     dominate any plausible NVI or silhouette difference; see
     ``sensitivity_select_k`` for a systematic evaluation of this choice.
     """
+
     def _key(r: KResult):
         nuniq = len(np.unique(r.labels))
         # heavy penalty if clustering collapsed below requested k (especially 1)
         deg_pen = 10.0 if nuniq <= 1 else (1.0 if nuniq < r.k else 0.0)
         return (deg_pen, r.mean_nvi, -r.silhouette)
+
     return min(results, key=_key)
 
 
@@ -287,18 +347,22 @@ def sensitivity_select_k(
 
     rows = []
     for pen in penalties:
+
         def _key(r: KResult, p=pen):
             nuniq = len(np.unique(r.labels))
             dp = p if nuniq <= 1 else (1.0 if nuniq < r.k else 0.0)
             return (dp, r.mean_nvi, -r.silhouette)
+
         best = min(results, key=_key)
-        rows.append({
-            "Penalty": pen,
-            "Selected_k": best.k,
-            "Mean_NVI": round(best.mean_nvi, 4),
-            "Silhouette": round(best.silhouette, 4),
-            "N_Unique_Labels": int(len(np.unique(best.labels))),
-        })
+        rows.append(
+            {
+                "Penalty": pen,
+                "Selected_k": best.k,
+                "Mean_NVI": round(best.mean_nvi, 4),
+                "Silhouette": round(best.silhouette, 4),
+                "N_Unique_Labels": int(len(np.unique(best.labels))),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -345,20 +409,22 @@ def sensitivity_n_runs(
     rows = []
     prev_M = None
     for nr in sorted(n_runs_values):
-        M = consensus_matrix(X, k, algorithms, n_runs=nr, frac=frac,
-                             seed=seed, n_jobs=n_jobs)
+        M = consensus_matrix(
+            X, k, algorithms, n_runs=nr, frac=frac, seed=seed, n_jobs=n_jobs
+        )
         labs = consensus_labels(M, k)
         mean_cons = float(np.mean(M[np.triu_indices_from(M, k=1)]))
         if prev_M is not None:
             mad = float(np.mean(np.abs(M - prev_M)))
         else:
             mad = float("nan")
-        rows.append({
-            "N_runs": nr,
-            "Mean_Consensus": round(mean_cons, 4),
-            "MAD_from_prev": round(mad, 4) if not np.isnan(mad) else float("nan"),
-            "N_Labels": int(len(np.unique(labs))),
-        })
+        rows.append(
+            {
+                "N_runs": nr,
+                "Mean_Consensus": round(mean_cons, 4),
+                "MAD_from_prev": round(mad, 4) if not np.isnan(mad) else float("nan"),
+                "N_Labels": int(len(np.unique(labs))),
+            }
+        )
         prev_M = M.copy()
     return pd.DataFrame(rows)
-

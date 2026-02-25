@@ -38,7 +38,9 @@ def _(mo):
 @app.cell
 def _(mo, Path):
     data_root = mo.ui.text(value=str(Path.cwd()), label="Data root")
-    out_root = mo.ui.text(value=str(Path.cwd() / "bacttraitcluster_out"), label="Output directory")
+    out_root = mo.ui.text(
+        value=str(Path.cwd() / "bacttraitcluster_out"), label="Output directory"
+    )
 
     mic_path = mo.ui.text(value="MIC.csv", label="MIC CSV")
     amr_path = mo.ui.text(value="AMR_genes.csv", label="AMR genes CSV (optional)")
@@ -48,7 +50,9 @@ def _(mo, Path):
     mlst_path = mo.ui.text(value="MLST.csv", label="MLST CSV (optional)")
     sero_path = mo.ui.text(value="Serotype.csv", label="Serotype CSV (optional)")
 
-    align_mode = mo.ui.dropdown(options=["union", "intersection"], value="union", label="align_mode")
+    align_mode = mo.ui.dropdown(
+        options=["union", "intersection"], value="union", label="align_mode"
+    )
     schema_version = mo.ui.text(value="1.1", label="schema_version")
     config_strict = mo.ui.switch(value=False, label="config_strict")
 
@@ -92,7 +96,27 @@ def _(mo, Path):
 
 
 @app.cell
-def _(Path, mo, yaml, align_mode, amr_path, config_strict, data_root, enable_profiling, k_max, k_min, mic_path, mge_path, mlst_path, n_consensus, out_root, plas_path, schema_version, sero_path, vir_path):
+def _(
+    Path,
+    mo,
+    yaml,
+    align_mode,
+    amr_path,
+    config_strict,
+    data_root,
+    enable_profiling,
+    k_max,
+    k_min,
+    mic_path,
+    mge_path,
+    mlst_path,
+    n_consensus,
+    out_root,
+    plas_path,
+    schema_version,
+    sero_path,
+    vir_path,
+):
     def _abs(p: str) -> str:
         p = p.strip()
         if not p:
@@ -135,7 +159,11 @@ def _(Path, mo, yaml, align_mode, amr_path, config_strict, data_root, enable_pro
         "reliability": {"enabled": True, "fail_fast": False},
     }
 
-    editor = mo.ui.text_area(value=yaml.safe_dump(cfg, sort_keys=False), label="Config YAML (editable)", rows=22)
+    editor = mo.ui.text_area(
+        value=yaml.safe_dump(cfg, sort_keys=False),
+        label="Config YAML (editable)",
+        rows=22,
+    )
     mo.md("## Config editor")
     editor
     return editor
@@ -158,9 +186,19 @@ def _(Path, json, mo, subprocess, sys, time, editor, out_root):
         cfg_path.write_text(editor.value, encoding="utf-8")
         cmd = [sys.executable, "-m", "bacttraitcluster.cli", "--config", str(cfg_path)]
         with open(log_path, "ab") as f:
-            proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=str(out_dir))
+            proc = subprocess.Popen(
+                cmd, stdout=f, stderr=subprocess.STDOUT, cwd=str(out_dir)
+            )
         state_path.write_text(
-            json.dumps({"pid": proc.pid, "cmd": cmd, "started_at": time.time(), "cwd": str(out_dir)}, indent=2),
+            json.dumps(
+                {
+                    "pid": proc.pid,
+                    "cmd": cmd,
+                    "started_at": time.time(),
+                    "cwd": str(out_dir),
+                },
+                indent=2,
+            ),
             encoding="utf-8",
         )
     return cfg_path, log_path, refresh, state_path
@@ -187,10 +225,16 @@ def _(Path, mo, out_root, pd):
     out_dir = Path(out_root.value)
     pattern = mo.ui.text(value="*.csv", label="File glob")
     limit = mo.ui.number(value=200, label="Preview rows", step=50)
-    label_map = mo.ui.text_area(value="{}", label="Label map (JSON) — applied to displayed tables", rows=4)
+    label_map = mo.ui.text_area(
+        value="{}", label="Label map (JSON) — applied to displayed tables", rows=4
+    )
     mo.vstack([mo.hstack([pattern, limit]), label_map])
 
-    files = sorted([p for p in out_dir.rglob(pattern.value) if p.is_file()]) if out_dir.exists() else []
+    files = (
+        sorted([p for p in out_dir.rglob(pattern.value) if p.is_file()])
+        if out_dir.exists()
+        else []
+    )
     if not files:
         mo.md("No matching files yet.")
         return
@@ -208,7 +252,9 @@ def _(Path, mo, out_root, pd):
         try:
             mapping = __import__("json").loads(label_map.value or "{}")
             if isinstance(mapping, dict) and mapping:
-                df = df.rename(columns={k: v for k, v in mapping.items() if k in df.columns})
+                df = df.rename(
+                    columns={k: v for k, v in mapping.items() if k in df.columns}
+                )
                 # Replace exact string matches in object columns
                 for c in df.columns:
                     if df[c].dtype == object:
@@ -236,7 +282,11 @@ def _(Path, mo, out_root, pd):
         return
 
     k_col = "k" if "k" in df.columns else df.columns[0]
-    mean_col = "nvi_mean" if "nvi_mean" in df.columns else ("mean" if "mean" in df.columns else None)
+    mean_col = (
+        "nvi_mean"
+        if "nvi_mean" in df.columns
+        else ("mean" if "mean" in df.columns else None)
+    )
     lo_col = "nvi_ci_low" if "nvi_ci_low" in df.columns else None
     hi_col = "nvi_ci_high" if "nvi_ci_high" in df.columns else None
 
@@ -261,20 +311,76 @@ def _(Path, mo, out_root, pd):
 def _(mo):
     mo.md("## Output reference")
     artifacts = [
-        {"file": "stability_path.csv", "meaning": "Stability vs k (NVI). Lower NVI => more stable partitions across bootstrap runs.", "interpretation": "Pick k at a stability elbow; avoid k where CI is wide."},
-        {"file": "clusters.csv", "meaning": "Per-layer cluster labels.", "interpretation": "Check if clusters match known biology; validate with enrichment/effect sizes."},
-        {"file": "consensus_matrix.npy", "meaning": "Co-association probabilities from consensus clustering.", "interpretation": "Block-diagonal structure indicates stable clusters."},
-        {"file": "feature_qc.csv", "meaning": "Feature prevalence/missingness filters applied.", "interpretation": "If key features are filtered, adjust thresholds."},
-        {"file": "layer_coverage.csv", "meaning": "Sample overlap per layer.", "interpretation": "Low overlap => fused clusters may be driven by a subset."},
-        {"file": "integrated_clusters.csv", "meaning": "All layers' cluster labels aligned by Strain_ID.", "interpretation": "Use to compare phenotypic vs genotypic groupings."},
-        {"file": "layer_concordance.csv", "meaning": "Agreement (ARI/NMI/VI) between layers.", "interpretation": "High concordance suggests shared structure; discordance suggests recombination/HGT or measurement differences."},
-        {"file": "layer_weights.csv", "meaning": "Weights used in multi-view fusion.", "interpretation": "Higher weight => layer contributes more to fused consensus."},
-        {"file": "fused_clusters.csv", "meaning": "Final fused clustering.", "interpretation": "Treat as a hypothesis; confirm with independent signals (phylogeny, metadata)."},
-        {"file": "prediction_strength.csv", "meaning": "Out-of-bootstrap replicability metric.", "interpretation": "Low values indicate unstable clustering; reduce k or adjust filtering."},
-        {"file": "enrichment_z.csv", "meaning": "Cluster-wise enrichment z-scores with BH-FDR.", "interpretation": "Focus on effect size + prevalence, not only q-values."},
-        {"file": "cliff_delta.csv", "meaning": "Nonparametric effect size per feature (Cliff's delta) with CI.", "interpretation": "Prioritise large |delta| with tight CI."},
-        {"file": "config_validation.json", "meaning": "Config schema + unknown-key report.", "interpretation": "If strict mode fails, fix config keys."},
-        {"file": "run_manifest.json", "meaning": "Input hashes + environment + algorithms used/missing.", "interpretation": "Use for reproducibility and audit trails."},
+        {
+            "file": "stability_path.csv",
+            "meaning": "Stability vs k (NVI). Lower NVI => more stable partitions across bootstrap runs.",
+            "interpretation": "Pick k at a stability elbow; avoid k where CI is wide.",
+        },
+        {
+            "file": "clusters.csv",
+            "meaning": "Per-layer cluster labels.",
+            "interpretation": "Check if clusters match known biology; validate with enrichment/effect sizes.",
+        },
+        {
+            "file": "consensus_matrix.npy",
+            "meaning": "Co-association probabilities from consensus clustering.",
+            "interpretation": "Block-diagonal structure indicates stable clusters.",
+        },
+        {
+            "file": "feature_qc.csv",
+            "meaning": "Feature prevalence/missingness filters applied.",
+            "interpretation": "If key features are filtered, adjust thresholds.",
+        },
+        {
+            "file": "layer_coverage.csv",
+            "meaning": "Sample overlap per layer.",
+            "interpretation": "Low overlap => fused clusters may be driven by a subset.",
+        },
+        {
+            "file": "integrated_clusters.csv",
+            "meaning": "All layers' cluster labels aligned by Strain_ID.",
+            "interpretation": "Use to compare phenotypic vs genotypic groupings.",
+        },
+        {
+            "file": "layer_concordance.csv",
+            "meaning": "Agreement (ARI/NMI/VI) between layers.",
+            "interpretation": "High concordance suggests shared structure; discordance suggests recombination/HGT or measurement differences.",
+        },
+        {
+            "file": "layer_weights.csv",
+            "meaning": "Weights used in multi-view fusion.",
+            "interpretation": "Higher weight => layer contributes more to fused consensus.",
+        },
+        {
+            "file": "fused_clusters.csv",
+            "meaning": "Final fused clustering.",
+            "interpretation": "Treat as a hypothesis; confirm with independent signals (phylogeny, metadata).",
+        },
+        {
+            "file": "prediction_strength.csv",
+            "meaning": "Out-of-bootstrap replicability metric.",
+            "interpretation": "Low values indicate unstable clustering; reduce k or adjust filtering.",
+        },
+        {
+            "file": "enrichment_z.csv",
+            "meaning": "Cluster-wise enrichment z-scores with BH-FDR.",
+            "interpretation": "Focus on effect size + prevalence, not only q-values.",
+        },
+        {
+            "file": "cliff_delta.csv",
+            "meaning": "Nonparametric effect size per feature (Cliff's delta) with CI.",
+            "interpretation": "Prioritise large |delta| with tight CI.",
+        },
+        {
+            "file": "config_validation.json",
+            "meaning": "Config schema + unknown-key report.",
+            "interpretation": "If strict mode fails, fix config keys.",
+        },
+        {
+            "file": "run_manifest.json",
+            "meaning": "Input hashes + environment + algorithms used/missing.",
+            "interpretation": "Use for reproducibility and audit trails.",
+        },
     ]
     mo.ui.table(artifacts, pagination=True, label="Artifacts")
 

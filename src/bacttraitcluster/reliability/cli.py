@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import argparse
@@ -54,13 +53,24 @@ def _load_config(path):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Generic reliability hardening preflight for ssuis-* tools")
+    ap = argparse.ArgumentParser(
+        description="Generic reliability hardening preflight for ssuis-* tools"
+    )
     ap.add_argument("--tool-name", required=True)
     ap.add_argument("--tool-version", default="0.0.0")
     ap.add_argument("--outdir", required=True)
-    ap.add_argument("--dataset", action="append", help="Dataset layer in name=path form", default=[])
-    ap.add_argument("--id-col", action="append", help="Optional explicit ID column per dataset, name=column", default=[])
-    ap.add_argument("--config", help="YAML/JSON config file with thresholds and preset settings")
+    ap.add_argument(
+        "--dataset", action="append", help="Dataset layer in name=path form", default=[]
+    )
+    ap.add_argument(
+        "--id-col",
+        action="append",
+        help="Optional explicit ID column per dataset, name=column",
+        default=[],
+    )
+    ap.add_argument(
+        "--config", help="YAML/JSON config file with thresholds and preset settings"
+    )
     ap.add_argument("--min-samples", type=int, default=10)
     ap.add_argument("--run-sensitivity", action="store_true")
     ap.add_argument("--reference-layer", default=None)
@@ -86,19 +96,40 @@ def main(argv=None):
         dfs[name] = df
         id_cols[name] = pf.id_col
         feature_info[name] = feature_informativeness_index(df, id_col=pf.id_col)
-        degeneracy[name] = check_degeneracy(feature_table=df, id_col=pf.id_col, min_samples=args.min_samples)
+        degeneracy[name] = check_degeneracy(
+            feature_table=df, id_col=pf.id_col, min_samples=args.min_samples
+        )
         if args.run_sensitivity:
             sensitivity[name] = sensitivity_minirun_binary_features(
-                df, id_col=pf.id_col,
+                df,
+                id_col=pf.id_col,
                 n_runs=int(rel_cfg.get("sensitivity_n_runs", 10)),
-                subsample_fraction=float(rel_cfg.get("sensitivity_subsample_fraction", 0.8)),
+                subsample_fraction=float(
+                    rel_cfg.get("sensitivity_subsample_fraction", 0.8)
+                ),
                 random_state=int(rel_cfg.get("random_state", 42)),
             )
 
-    overlap = pairwise_id_overlap(dfs, id_cols) if len(dfs) >= 2 else pd.DataFrame(
-        columns=["dataset_a","dataset_b","n_ids_a","n_ids_b","intersection","union","jaccard","recall_a_in_b","recall_b_in_a"]
+    overlap = (
+        pairwise_id_overlap(dfs, id_cols)
+        if len(dfs) >= 2
+        else pd.DataFrame(
+            columns=[
+                "dataset_a",
+                "dataset_b",
+                "n_ids_a",
+                "n_ids_b",
+                "intersection",
+                "union",
+                "jaccard",
+                "recall_a_in_b",
+                "recall_b_in_a",
+            ]
+        )
     )
-    coverage = layer_coverage_against_reference(dfs, id_cols, reference_name=args.reference_layer)
+    coverage = layer_coverage_against_reference(
+        dfs, id_cols, reference_name=args.reference_layer
+    )
 
     qg = quality_gate(
         preflights,

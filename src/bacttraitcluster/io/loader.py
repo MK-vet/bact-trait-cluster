@@ -1,4 +1,3 @@
-
 """Robust CSV loader for wide (matrix) and long (ID,feature[,value]) layers.
 
 Design goals:
@@ -8,6 +7,7 @@ Design goals:
    - For strains absent from the file: all features are NA (unobserved / missing).
 3) Provide explicit coverage/observed flags for defensible reporting.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,12 +16,14 @@ from typing import Dict, Optional, Tuple, List
 
 import pandas as pd
 
+
 @dataclass
 class LayerLoadResult:
     name: str
-    data: pd.DataFrame            # index: IDs, columns: features (Int8 with NA)
-    observed: pd.Series           # boolean, True if strain observed in this layer
-    meta: Dict[str, object]       # misc metadata
+    data: pd.DataFrame  # index: IDs, columns: features (Int8 with NA)
+    observed: pd.Series  # boolean, True if strain observed in this layer
+    meta: Dict[str, object]  # misc metadata
+
 
 def _is_long_format(df: pd.DataFrame, id_col: str) -> bool:
     """Heuristic for positive-list long format, avoiding categorical metadata misclassification."""
@@ -38,8 +40,11 @@ def _is_long_format(df: pd.DataFrame, id_col: str) -> bool:
         return not pd.api.types.is_numeric_dtype(df[c])
     if len(cols) == 2:
         feat_col, val_col = cols[0], cols[1]
-        return (not pd.api.types.is_numeric_dtype(df[feat_col])) and pd.api.types.is_numeric_dtype(df[val_col])
+        return (
+            not pd.api.types.is_numeric_dtype(df[feat_col])
+        ) and pd.api.types.is_numeric_dtype(df[val_col])
     return False
+
 
 def _coerce_binary_wide(df: pd.DataFrame) -> pd.DataFrame:
     """Coerce wide matrix columns to binary where appropriate, preserving NA.
@@ -67,14 +72,19 @@ def _coerce_binary_wide(df: pd.DataFrame) -> pd.DataFrame:
             out[c] = s.astype("Int8")
             continue
 
-        num = s if pd.api.types.is_numeric_dtype(s) else pd.to_numeric(s, errors="coerce")
+        num = (
+            s if pd.api.types.is_numeric_dtype(s) else pd.to_numeric(s, errors="coerce")
+        )
         if pd.api.types.is_numeric_dtype(s) or num.notna().any():
             vals = pd.Series(num).dropna()
             uniq = pd.unique(vals)
-            if len(uniq) > 0 and set(pd.Series(uniq).astype(float).round(12)).issubset({0.0, 1.0}):
+            if len(uniq) > 0 and set(pd.Series(uniq).astype(float).round(12)).issubset(
+                {0.0, 1.0}
+            ):
                 arr = pd.Series(num, index=df.index).astype("Float64")
                 out[c] = arr.where(arr.isna(), (arr > 0).astype("Int8"))
             else:
+
                 def _fmt(v):
                     if pd.isna(v):
                         return pd.NA
@@ -83,6 +93,7 @@ def _coerce_binary_wide(df: pd.DataFrame) -> pd.DataFrame:
                         return str(int(fv)) if fv.is_integer() else str(fv)
                     except Exception:
                         return str(v)
+
                 _add_dummies(c, pd.Series(num, index=df.index).map(_fmt))
             continue
 
@@ -90,11 +101,19 @@ def _coerce_binary_wide(df: pd.DataFrame) -> pd.DataFrame:
 
     for c in out.columns:
         try:
-            if str(out[c].dtype) in {"int64", "int32", "int16", "int8", "uint8", "bool"}:
+            if str(out[c].dtype) in {
+                "int64",
+                "int32",
+                "int16",
+                "int8",
+                "uint8",
+                "bool",
+            }:
                 out[c] = out[c].astype("Int8")
         except Exception:
             pass
     return out
+
 
 def load_layer_csv(
     name: str,
@@ -139,7 +158,9 @@ def load_layer_csv(
             tmp = pd.DataFrame({id_col: ids, feature_col: feat, "__val": val})
             tmp = tmp[tmp["__val"].notna()]
             tmp["__val"] = (tmp["__val"] > 0).astype(int)
-            tab = tmp.pivot_table(index=id_col, columns=feature_col, values="__val", aggfunc="max").fillna(0)
+            tab = tmp.pivot_table(
+                index=id_col, columns=feature_col, values="__val", aggfunc="max"
+            ).fillna(0)
 
         tab = (tab > 0).astype("Int8")
         observed_ids = tab.index.astype(str)
@@ -169,6 +190,7 @@ def load_layer_csv(
 
     return LayerLoadResult(name=name, data=wide, observed=observed, meta=meta)
 
+
 def layer_coverage(res: LayerLoadResult) -> Dict[str, object]:
     n_total = int(res.data.shape[0])
     n_obs = int(res.observed.sum())
@@ -183,6 +205,7 @@ def layer_coverage(res: LayerLoadResult) -> Dict[str, object]:
         "N_features": n_feat,
         "Missing_cells": miss_cells,
     }
+
 
 def qc_binary_features(
     df: pd.DataFrame,
@@ -206,7 +229,12 @@ def qc_binary_features(
     miss_frac = obs_df.isna().mean(axis=0)
     valid = obs_df.notna().sum(axis=0)
     prev = obs_df.mean(axis=0, skipna=True)  # mean of 0/1 ignoring NA
-    keep = (valid > 0) & (prev >= min_prev) & (prev <= max_prev) & (miss_frac <= max_missing_frac)
+    keep = (
+        (valid > 0)
+        & (prev >= min_prev)
+        & (prev <= max_prev)
+        & (miss_frac <= max_missing_frac)
+    )
 
     report = pd.DataFrame(index=pd.Index(df.columns, name="Feature"))
     report["Valid_N"] = valid.reindex(df.columns).fillna(0).astype(int)
@@ -214,16 +242,27 @@ def qc_binary_features(
     report["Missing_Frac"] = miss_frac.reindex(df.columns)
     report["Keep"] = keep.reindex(df.columns).fillna(False)
     report["Dropped_reason"] = ""
-    report.loc[(~report["Keep"]) & (report["Valid_N"] == 0), "Dropped_reason"] = "all_missing"
-    report.loc[(~report["Keep"]) & (report["Prevalence"] < min_prev), "Dropped_reason"] = "too_rare"
-    report.loc[(~report["Keep"]) & (report["Prevalence"] > max_prev), "Dropped_reason"] = "too_common"
-    report.loc[(~report["Keep"]) & (report["Missing_Frac"] > max_missing_frac), "Dropped_reason"] = "too_many_missing"
+    report.loc[(~report["Keep"]) & (report["Valid_N"] == 0), "Dropped_reason"] = (
+        "all_missing"
+    )
+    report.loc[
+        (~report["Keep"]) & (report["Prevalence"] < min_prev), "Dropped_reason"
+    ] = "too_rare"
+    report.loc[
+        (~report["Keep"]) & (report["Prevalence"] > max_prev), "Dropped_reason"
+    ] = "too_common"
+    report.loc[
+        (~report["Keep"]) & (report["Missing_Frac"] > max_missing_frac),
+        "Dropped_reason",
+    ] = "too_many_missing"
 
     keep_mask = report["Keep"].to_numpy(dtype=bool)
     return df.loc[:, keep_mask], report.reset_index()
 
+
 def sha256_file(path: str | Path) -> str:
     import hashlib
+
     p = Path(path)
     h = hashlib.sha256()
     with p.open("rb") as f:

@@ -11,6 +11,7 @@ Strict mode triggers
 - YAML key: config_strict: true
 - Env var: SSUIS_CONFIG_STRICT=1
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -40,7 +41,9 @@ def _dataclass_allowed_fields(dc_cls: Any) -> set[str]:
     return {f.name for f in _dc.fields(dc_cls)}
 
 
-def _validate_and_filter(dc_cls: Any, raw: Any, prefix: str, unknown_paths: List[str]) -> Any:
+def _validate_and_filter(
+    dc_cls: Any, raw: Any, prefix: str, unknown_paths: List[str]
+) -> Any:
     if raw is None:
         raw = {}
     if isinstance(raw, dict):
@@ -56,15 +59,29 @@ def _validate_and_filter(dc_cls: Any, raw: Any, prefix: str, unknown_paths: List
                 continue
             tp = f.type
             if _is_dataclass_type(tp) and isinstance(v, dict):
-                filtered[k] = _validate_and_filter(tp, v, f"{prefix}.{k}" if prefix else k, unknown_paths)
+                filtered[k] = _validate_and_filter(
+                    tp, v, f"{prefix}.{k}" if prefix else k, unknown_paths
+                )
             else:
                 origin = get_origin(tp)
                 args = get_args(tp)
-                if origin in (list, List) and args and _is_dataclass_type(args[0]) and isinstance(v, list):
+                if (
+                    origin in (list, List)
+                    and args
+                    and _is_dataclass_type(args[0])
+                    and isinstance(v, list)
+                ):
                     out_list = []
                     for i, item in enumerate(v):
                         if isinstance(item, dict):
-                            out_list.append(_validate_and_filter(args[0], item, f"{prefix}.{k}[{i}]" if prefix else f"{k}[{i}]", unknown_paths))
+                            out_list.append(
+                                _validate_and_filter(
+                                    args[0],
+                                    item,
+                                    f"{prefix}.{k}[{i}]" if prefix else f"{k}[{i}]",
+                                    unknown_paths,
+                                )
+                            )
                         else:
                             out_list.append(item)
                     filtered[k] = out_list
@@ -82,10 +99,11 @@ class LayerSpec:
     - wide binary matrices: ID column + many feature columns (0/1 with possible NA)
     - long positive lists: ID column + feature column (+ optional value/count column)
     """
+
     name: str
     path: str
     id_column: str = "Strain_ID"
-    format: str = "auto"             # auto | wide | long
+    format: str = "auto"  # auto | wide | long
     feature_column: str | None = None
     value_column: str | None = None
 
@@ -93,15 +111,17 @@ class LayerSpec:
 @dataclass
 class InputSpec:
     """Input alignment & missingness policy."""
-    align_mode: str = "union"         # union | intersection (intersection mimics legacy)
+
+    align_mode: str = "union"  # union | intersection (intersection mimics legacy)
     drop_samples_with_missing: bool = True
-    max_missing_sample: float = 0.0   # applied per-layer after QC
+    max_missing_sample: float = 0.0  # applied per-layer after QC
     max_missing_feature: float = 0.0  # applied per-layer after QC
 
 
 @dataclass
 class FeatureQCSpec:
     """QC for binary features before clustering."""
+
     min_prev: float = 0.01
     max_prev: float = 0.99
     max_missing_frac: float = 0.0
@@ -110,6 +130,7 @@ class FeatureQCSpec:
 @dataclass
 class PhyloValidationSpec:
     """Optional phylogeny-aware validation of cluster quality (no comparative modelling)."""
+
     enabled: bool = False
     tree_path: str = ""
     id_match_required: bool = True
@@ -119,9 +140,14 @@ class PhyloValidationSpec:
 @dataclass
 class ConsensusSpec:
     """Multi-algorithm consensus clustering parameters."""
-    algorithms: List[str] = field(default_factory=lambda: [
-        "kmodes", "spectral_jaccard", "agglomerative_hamming",
-    ])
+
+    algorithms: List[str] = field(
+        default_factory=lambda: [
+            "kmodes",
+            "spectral_jaccard",
+            "agglomerative_hamming",
+        ]
+    )
     k_range: List[int] = field(default_factory=lambda: [2, 3, 4, 5, 6, 7, 8])
     n_consensus_runs: int = 200
     subsample_fraction: float = 0.8
@@ -131,6 +157,7 @@ class ConsensusSpec:
 @dataclass
 class ProfilingSpec:
     """Cluster profiling parameters."""
+
     shap_enabled: bool = True
     shap_n_background: int = 100
     shap_bootstrap: int = 50
@@ -143,6 +170,7 @@ class ProfilingSpec:
 @dataclass
 class Config:
     """Top-level pipeline configuration."""
+
     # schema + validation
     schema_version: str = SCHEMA_VERSION
     config_strict: bool = False
@@ -164,11 +192,13 @@ class Config:
         raw = yaml.safe_load(Path(path).read_text()) or {}
 
         # legacy alias
-        if 'qc' in raw and 'feature_qc' not in raw:
-            raw['feature_qc'] = raw.pop('qc')
+        if "qc" in raw and "feature_qc" not in raw:
+            raw["feature_qc"] = raw.pop("qc")
 
         schema_in = str(raw.get("schema_version", "1.0"))
-        strict = bool(raw.get("config_strict", False)) or (os.environ.get("SSUIS_CONFIG_STRICT", "0") == "1")
+        strict = bool(raw.get("config_strict", False)) or (
+            os.environ.get("SSUIS_CONFIG_STRICT", "0") == "1"
+        )
         if schema_in not in SUPPORTED_SCHEMA_VERSIONS:
             msg = f"Unsupported schema_version={schema_in!r}. Supported: {sorted(SUPPORTED_SCHEMA_VERSIONS)}"
             if strict:
@@ -176,17 +206,28 @@ class Config:
             logger.warning(msg)
 
         unknown_paths: List[str] = []
-        filtered = _validate_and_filter(cls, raw, prefix="", unknown_paths=unknown_paths)
+        filtered = _validate_and_filter(
+            cls, raw, prefix="", unknown_paths=unknown_paths
+        )
 
-        layers = [LayerSpec(**(l or {})) for l in (filtered.pop("layers", []) or [])]
+        layers = [
+            LayerSpec(**(lyr or {})) for lyr in (filtered.pop("layers", []) or [])
+        ]
         inp = InputSpec(**(filtered.pop("input", {}) or {}))
         fqc = FeatureQCSpec(**(filtered.pop("feature_qc", {}) or {}))
         pv = PhyloValidationSpec(**(filtered.pop("phylo_validation", {}) or {}))
         consensus = ConsensusSpec(**(filtered.pop("consensus", {}) or {}))
         profiling = ProfilingSpec(**(filtered.pop("profiling", {}) or {}))
 
-        cfg = cls(layers=layers, input=inp, feature_qc=fqc, phylo_validation=pv,
-                  consensus=consensus, profiling=profiling, **filtered)
+        cfg = cls(
+            layers=layers,
+            input=inp,
+            feature_qc=fqc,
+            phylo_validation=pv,
+            consensus=consensus,
+            profiling=profiling,
+            **filtered,
+        )
 
         cfg._config_validation = {
             "schema_version_in": schema_in,
@@ -194,11 +235,16 @@ class Config:
             "supported_schema_versions": sorted(SUPPORTED_SCHEMA_VERSIONS),
             "unknown_keys": sorted(set(unknown_paths)),
             "strict": strict,
-            "status": "PASS" if (schema_in in SUPPORTED_SCHEMA_VERSIONS and not unknown_paths) else ("WARN" if not strict else "FAIL"),
+            "status": "PASS"
+            if (schema_in in SUPPORTED_SCHEMA_VERSIONS and not unknown_paths)
+            else ("WARN" if not strict else "FAIL"),
         }
 
         if unknown_paths:
-            msg = f"Unknown config keys ignored ({len(set(unknown_paths))}): {sorted(set(unknown_paths))[:20]}" + (" ..." if len(set(unknown_paths)) > 20 else "")
+            msg = (
+                f"Unknown config keys ignored ({len(set(unknown_paths))}): {sorted(set(unknown_paths))[:20]}"
+                + (" ..." if len(set(unknown_paths)) > 20 else "")
+            )
             if strict:
                 raise ValueError(msg)
             logger.warning(msg)
@@ -215,4 +261,6 @@ class Config:
                 return [ser(v) for v in o]
             return o
 
-        Path(path).write_text(yaml.dump(ser(self), default_flow_style=False, sort_keys=False))
+        Path(path).write_text(
+            yaml.dump(ser(self), default_flow_style=False, sort_keys=False)
+        )

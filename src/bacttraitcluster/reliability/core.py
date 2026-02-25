@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import hashlib
@@ -12,7 +11,16 @@ import numpy as np
 import pandas as pd
 
 
-DEFAULT_ID_COL_CANDIDATES = ("strain", "sample", "isolate", "id", "ID", "Strain", "Sample", "Isolate")
+DEFAULT_ID_COL_CANDIDATES = (
+    "strain",
+    "sample",
+    "isolate",
+    "id",
+    "ID",
+    "Strain",
+    "Sample",
+    "Isolate",
+)
 
 
 def _ensure_path(p: str | Path) -> Path:
@@ -34,7 +42,10 @@ def _json_default(o):
 def save_json(data, path: str | Path, indent: int = 2) -> Path:
     path = _ensure_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=indent, ensure_ascii=False, default=_json_default), encoding="utf-8")
+    path.write_text(
+        json.dumps(data, indent=indent, ensure_ascii=False, default=_json_default),
+        encoding="utf-8",
+    )
     return path
 
 
@@ -89,18 +100,25 @@ def read_table(path: str | Path) -> pd.DataFrame:
     raise ValueError(f"Unsupported table format for {path}")
 
 
-def normalize_binary_like(df: pd.DataFrame, id_col: Optional[str] = None) -> pd.DataFrame:
+def normalize_binary_like(
+    df: pd.DataFrame, id_col: Optional[str] = None
+) -> pd.DataFrame:
     out = df.copy()
     if id_col and id_col in out.columns:
         feature_cols = [c for c in out.columns if c != id_col]
     else:
         feature_cols = list(out.columns)
     mapping = {
-        "present": 1, "absent": 0,
-        "yes": 1, "no": 0,
-        "true": 1, "false": 0,
-        "t": 1, "f": 0,
-        "+": 1, "-": 0
+        "present": 1,
+        "absent": 0,
+        "yes": 1,
+        "no": 0,
+        "true": 1,
+        "false": 0,
+        "t": 1,
+        "f": 0,
+        "+": 1,
+        "-": 0,
     }
     for c in feature_cols:
         ser = out[c]
@@ -129,7 +147,9 @@ class DatasetPreflight:
     sha256: str
 
 
-def preflight_dataset(path: str | Path, name: Optional[str] = None, id_col: Optional[str] = None) -> Tuple[DatasetPreflight, pd.DataFrame]:
+def preflight_dataset(
+    path: str | Path, name: Optional[str] = None, id_col: Optional[str] = None
+) -> Tuple[DatasetPreflight, pd.DataFrame]:
     p = _ensure_path(path)
     df = read_table(p)
     chosen_id = detect_id_column(df, explicit=id_col)
@@ -146,13 +166,17 @@ def preflight_dataset(path: str | Path, name: Optional[str] = None, id_col: Opti
         id_col=chosen_id,
         n_unique_ids=int(nonnull_ids.nunique()),
         missing_id_rows=int(ids.isna().sum()) if len(ids) else 0,
-        duplicate_id_rows=int(nonnull_ids.duplicated().sum()) if len(nonnull_ids) else 0,
+        duplicate_id_rows=int(nonnull_ids.duplicated().sum())
+        if len(nonnull_ids)
+        else 0,
         sha256=sha256_file(p),
     )
     return pf, df
 
 
-def pairwise_id_overlap(datasets: Mapping[str, pd.DataFrame], id_cols: Mapping[str, Optional[str]]) -> pd.DataFrame:
+def pairwise_id_overlap(
+    datasets: Mapping[str, pd.DataFrame], id_cols: Mapping[str, Optional[str]]
+) -> pd.DataFrame:
     names = list(datasets.keys())
     rows = []
     id_sets = {}
@@ -165,19 +189,26 @@ def pairwise_id_overlap(datasets: Mapping[str, pd.DataFrame], id_cols: Mapping[s
             s = set()
         id_sets[n] = s
     for i, a in enumerate(names):
-        for b in names[i+1:]:
+        for b in names[i + 1 :]:
             A, B = id_sets[a], id_sets[b]
             inter = len(A & B)
             union = len(A | B)
             j = (inter / union) if union else math.nan
             rec_a = (inter / len(A)) if A else math.nan
             rec_b = (inter / len(B)) if B else math.nan
-            rows.append({
-                "dataset_a": a, "dataset_b": b,
-                "n_ids_a": len(A), "n_ids_b": len(B),
-                "intersection": inter, "union": union,
-                "jaccard": j, "recall_a_in_b": rec_a, "recall_b_in_a": rec_b
-            })
+            rows.append(
+                {
+                    "dataset_a": a,
+                    "dataset_b": b,
+                    "n_ids_a": len(A),
+                    "n_ids_b": len(B),
+                    "intersection": inter,
+                    "union": union,
+                    "jaccard": j,
+                    "recall_a_in_b": rec_a,
+                    "recall_b_in_a": rec_b,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -188,26 +219,50 @@ def layer_coverage_against_reference(
 ) -> pd.DataFrame:
     names = list(datasets.keys())
     if not names:
-        return pd.DataFrame(columns=["dataset","reference","n_dataset","n_reference","intersection","coverage_vs_reference"])
+        return pd.DataFrame(
+            columns=[
+                "dataset",
+                "reference",
+                "n_dataset",
+                "n_reference",
+                "intersection",
+                "coverage_vs_reference",
+            ]
+        )
     if reference_name is None:
         # Prefer MIC if present, otherwise first
         lower_map = {n.lower(): n for n in names}
-        reference_name = lower_map.get("mic") or next((n for n in names if "mic" in n.lower()), names[0])
+        reference_name = lower_map.get("mic") or next(
+            (n for n in names if "mic" in n.lower()), names[0]
+        )
     ref_df = datasets[reference_name]
     ref_id_col = id_cols.get(reference_name)
-    ref_ids = set(ref_df[ref_id_col].dropna().astype(str)) if ref_id_col and ref_id_col in ref_df.columns else set()
+    ref_ids = (
+        set(ref_df[ref_id_col].dropna().astype(str))
+        if ref_id_col and ref_id_col in ref_df.columns
+        else set()
+    )
     rows = []
     for n in names:
         idc = id_cols.get(n)
-        ids = set(datasets[n][idc].dropna().astype(str)) if idc and idc in datasets[n].columns else set()
+        ids = (
+            set(datasets[n][idc].dropna().astype(str))
+            if idc and idc in datasets[n].columns
+            else set()
+        )
         inter = len(ids & ref_ids)
         cov = (inter / len(ref_ids)) if ref_ids else math.nan
-        rows.append({
-            "dataset": n, "reference": reference_name, "n_dataset": len(ids), "n_reference": len(ref_ids),
-            "intersection": inter, "coverage_vs_reference": cov
-        })
+        rows.append(
+            {
+                "dataset": n,
+                "reference": reference_name,
+                "n_dataset": len(ids),
+                "n_reference": len(ref_ids),
+                "intersection": inter,
+                "coverage_vs_reference": cov,
+            }
+        )
     return pd.DataFrame(rows)
-
 
 
 def feature_informativeness_index(
@@ -247,13 +302,26 @@ def feature_informativeness_index(
                 mapped = raw.astype(int)
             elif raw.dtype == object:
                 low = raw.astype(str).str.strip().str.lower()
-                mapping = {"present":1,"absent":0,"yes":1,"no":0,"true":1,"false":0,"t":1,"f":0,"+":1,"-":0}
+                mapping = {
+                    "present": 1,
+                    "absent": 0,
+                    "yes": 1,
+                    "no": 0,
+                    "true": 1,
+                    "false": 0,
+                    "t": 1,
+                    "f": 0,
+                    "+": 1,
+                    "-": 0,
+                }
                 mapped = pd.to_numeric(low.map(mapping).fillna(low), errors="coerce")
             else:
                 mapped = pd.to_numeric(raw, errors="coerce")
 
             mv = mapped.dropna()
-            if len(mv) > 0 and set(pd.unique(mv.astype(float).round(6))).issubset({0.0, 1.0}):
+            if len(mv) > 0 and set(pd.unique(mv.astype(float).round(6))).issubset(
+                {0.0, 1.0}
+            ):
                 # True binary feature
                 feature_type = "binary"
                 bx = mv.astype(int)
@@ -266,7 +334,9 @@ def feature_informativeness_index(
                     entropy_bits = 0.0
                 else:
                     p_ = prevalence
-                    entropy_bits = float(-(p_*math.log2(p_) + (1-p_)*math.log2(1-p_)))
+                    entropy_bits = float(
+                        -(p_ * math.log2(p_) + (1 - p_) * math.log2(1 - p_))
+                    )
             else:
                 # Non-binary: categorical or numeric discrete/continuous
                 if pd.api.types.is_numeric_dtype(raw):
@@ -284,13 +354,17 @@ def feature_informativeness_index(
                 n_unique = int(vals_for_counts.nunique(dropna=True))
                 const = bool(n_unique <= 1)
                 if len(vals_for_counts) > 0:
-                    probs = vals_for_counts.value_counts(normalize=True, dropna=True).values.astype(float)
+                    probs = vals_for_counts.value_counts(
+                        normalize=True, dropna=True
+                    ).values.astype(float)
                     entropy_bits = float(-(probs * np.log2(probs)).sum())
                 # prevalence_* not applicable for non-binary features
 
         low_info = const
         if feature_type == "binary" and not math.isnan(prevalence):
-            low_info = low_info or (prevalence < prevalence_floor or prevalence > prevalence_ceiling)
+            low_info = low_info or (
+                prevalence < prevalence_floor or prevalence > prevalence_ceiling
+            )
 
         score = 0.0
         if not math.isnan(entropy_bits):
@@ -298,25 +372,27 @@ def feature_informativeness_index(
         if not math.isnan(missing_frac):
             score *= max(0.0, 1.0 - missing_frac)
 
-        out_rows.append({
-            "feature": c,
-            "feature_type": feature_type,
-            "n_total": int(n),
-            "n_valid": int(valid),
-            "n_unique": int(n_unique),
-            "missing_fraction": missing_frac,
-            "n_present": int(nz),
-            "n_absent": int(no),
-            "prevalence_present": prevalence,
-            "entropy_bits": entropy_bits,
-            "constant_feature": const,
-            "low_informativeness_flag": bool(low_info),
-            "informativeness_score": float(score),
-        })
-    out = pd.DataFrame(out_rows).sort_values(["low_informativeness_flag", "informativeness_score"], ascending=[True, False])
+        out_rows.append(
+            {
+                "feature": c,
+                "feature_type": feature_type,
+                "n_total": int(n),
+                "n_valid": int(valid),
+                "n_unique": int(n_unique),
+                "missing_fraction": missing_frac,
+                "n_present": int(nz),
+                "n_absent": int(no),
+                "prevalence_present": prevalence,
+                "entropy_bits": entropy_bits,
+                "constant_feature": const,
+                "low_informativeness_flag": bool(low_info),
+                "informativeness_score": float(score),
+            }
+        )
+    out = pd.DataFrame(out_rows).sort_values(
+        ["low_informativeness_flag", "informativeness_score"], ascending=[True, False]
+    )
     return out.reset_index(drop=True)
-
-
 
 
 def check_degeneracy(
@@ -334,7 +410,11 @@ def check_degeneracy(
         checks["n_samples"] = n
         if n < min_samples:
             failures.append(f"Too few samples ({n}) < min_samples ({min_samples})")
-        work = feature_table.drop(columns=[id_col]) if (id_col and id_col in feature_table.columns) else feature_table.copy()
+        work = (
+            feature_table.drop(columns=[id_col])
+            if (id_col and id_col in feature_table.columns)
+            else feature_table.copy()
+        )
         if work.shape[1] == 0:
             failures.append("No feature columns available after ID removal")
             checks["n_features"] = 0
@@ -356,13 +436,28 @@ def check_degeneracy(
                 else:
                     if s.dtype == object:
                         low = s.astype(str).str.strip().str.lower()
-                        mapping = {"present":1,"absent":0,"yes":1,"no":0,"true":1,"false":0,"t":1,"f":0,"+":1,"-":0}
-                        coerced = pd.to_numeric(low.map(mapping).fillna(low), errors="coerce")
+                        mapping = {
+                            "present": 1,
+                            "absent": 0,
+                            "yes": 1,
+                            "no": 0,
+                            "true": 1,
+                            "false": 0,
+                            "t": 1,
+                            "f": 0,
+                            "+": 1,
+                            "-": 0,
+                        }
+                        coerced = pd.to_numeric(
+                            low.map(mapping).fillna(low), errors="coerce"
+                        )
                     else:
                         coerced = pd.to_numeric(s, errors="coerce")
                     cv = coerced.dropna()
-                    is_binary_like = len(cv) > 0 and set(pd.unique(cv.astype(float).round(6))).issubset({0.0, 1.0})
-                    vals = (cv.astype(int) if is_binary_like else nonnull.astype(str))
+                    is_binary_like = len(cv) > 0 and set(
+                        pd.unique(cv.astype(float).round(6))
+                    ).issubset({0.0, 1.0})
+                    vals = cv.astype(int) if is_binary_like else nonnull.astype(str)
                 if is_binary_like:
                     binary_like_count += 1
                 if pd.Series(vals).nunique(dropna=True) <= 1:
@@ -371,9 +466,13 @@ def check_degeneracy(
             checks["constant_feature_count"] = int(const_count)
             checks["all_missing_feature_count"] = int(all_missing)
             if const_count == work.shape[1]:
-                failures.append("All features are constant (zero entropy / no variation)")
+                failures.append(
+                    "All features are constant (zero entropy / no variation)"
+                )
             elif const_count / max(1, work.shape[1]) > 0.8:
-                warnings.append(f"High fraction of constant features ({const_count}/{work.shape[1]})")
+                warnings.append(
+                    f"High fraction of constant features ({const_count}/{work.shape[1]})"
+                )
             if all_missing > 0:
                 warnings.append(f"{all_missing} feature(s) are entirely missing")
     if labels is not None:
@@ -383,18 +482,26 @@ def check_degeneracy(
         checks["n_labels_non_missing"] = int(n_labels)
         checks["n_unique_labels"] = int(uniq)
         if n_labels == 0:
-            failures.append("No labels available for clustering/network/MDR consistency")
+            failures.append(
+                "No labels available for clustering/network/MDR consistency"
+            )
         elif uniq <= 1:
             failures.append("Degenerate labels: <=1 unique class/community/cluster")
         elif uniq / max(1, n_labels) > 0.5:
-            warnings.append(f"Very fragmented labels: {uniq} unique labels among {n_labels} items")
+            warnings.append(
+                f"Very fragmented labels: {uniq} unique labels among {n_labels} items"
+            )
     status = "PASS"
     if failures:
         status = "FAIL"
     elif warnings:
         status = "WARN"
-    return {"status": status, "checks": checks, "warnings": warnings, "failures": failures}
-
+    return {
+        "status": status,
+        "checks": checks,
+        "warnings": warnings,
+        "failures": failures,
+    }
 
 
 def quality_gate(
@@ -407,8 +514,12 @@ def quality_gate(
     thresholds = {
         "min_jaccard_warn": float(cfg.get("min_jaccard_warn", 0.20)),
         "min_jaccard_fail": float(cfg.get("min_jaccard_fail", 0.05)),
-        "max_missing_id_fraction_warn": float(cfg.get("max_missing_id_fraction_warn", 0.05)),
-        "max_duplicate_id_fraction_warn": float(cfg.get("max_duplicate_id_fraction_warn", 0.05)),
+        "max_missing_id_fraction_warn": float(
+            cfg.get("max_missing_id_fraction_warn", 0.05)
+        ),
+        "max_duplicate_id_fraction_warn": float(
+            cfg.get("max_duplicate_id_fraction_warn", 0.05)
+        ),
     }
     warnings = []
     failures = []
@@ -426,19 +537,33 @@ def quality_gate(
         if p.cols <= 1:
             warnings.append(f"{p.name}: <=1 column")
     if overlap_df is not None and not overlap_df.empty:
-        min_j = overlap_df["jaccard"].dropna().min() if "jaccard" in overlap_df.columns else math.nan
+        min_j = (
+            overlap_df["jaccard"].dropna().min()
+            if "jaccard" in overlap_df.columns
+            else math.nan
+        )
         if not math.isnan(min_j):
             if min_j < thresholds["min_jaccard_fail"]:
-                failures.append(f"Very low cross-layer ID overlap detected (min Jaccard={min_j:.3f})")
+                failures.append(
+                    f"Very low cross-layer ID overlap detected (min Jaccard={min_j:.3f})"
+                )
             elif min_j < thresholds["min_jaccard_warn"]:
-                warnings.append(f"Low cross-layer ID overlap detected (min Jaccard={min_j:.3f})")
+                warnings.append(
+                    f"Low cross-layer ID overlap detected (min Jaccard={min_j:.3f})"
+                )
     deg_reports = degeneracy_reports or {}
     for key, rep in deg_reports.items():
         if rep.get("status") == "FAIL":
-            failures.append(f"{key}: degeneracy fail - " + "; ".join(rep.get("failures", [])))
+            failures.append(
+                f"{key}: degeneracy fail - " + "; ".join(rep.get("failures", []))
+            )
         elif rep.get("status") == "WARN":
-            warnings.append(f"{key}: degeneracy warnings - " + "; ".join(rep.get("warnings", [])))
-    status = "PASS" if not warnings and not failures else ("FAIL" if failures else "WARN")
+            warnings.append(
+                f"{key}: degeneracy warnings - " + "; ".join(rep.get("warnings", []))
+            )
+    status = (
+        "PASS" if not warnings and not failures else ("FAIL" if failures else "WARN")
+    )
     return {
         "status": status,
         "thresholds": thresholds,
@@ -487,17 +612,27 @@ def write_reliability_bundle(
     outdir = _ensure_path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
     paths = {}
-    paths["quality_gate.json"] = str(save_json(quality_gate_obj, outdir / "quality_gate.json"))
-    paths["analysis_validity_warnings.json"] = str(save_json(warnings_obj, outdir / "analysis_validity_warnings.json"))
-    fi_serializable = {k: v.to_dict(orient="records") for k, v in feature_info_map.items()}
-    paths["feature_informativeness_index.json"] = str(save_json(fi_serializable, outdir / "feature_informativeness_index.json"))
+    paths["quality_gate.json"] = str(
+        save_json(quality_gate_obj, outdir / "quality_gate.json")
+    )
+    paths["analysis_validity_warnings.json"] = str(
+        save_json(warnings_obj, outdir / "analysis_validity_warnings.json")
+    )
+    fi_serializable = {
+        k: v.to_dict(orient="records") for k, v in feature_info_map.items()
+    }
+    paths["feature_informativeness_index.json"] = str(
+        save_json(fi_serializable, outdir / "feature_informativeness_index.json")
+    )
     # Also save CSV per layer for convenience
     fi_csv_dir = outdir / "feature_informativeness"
     fi_csv_dir.mkdir(exist_ok=True)
     for k, v in feature_info_map.items():
         p = fi_csv_dir / f"{k}_feature_informativeness.csv"
         v.to_csv(p, index=False)
-    paths["run_manifest.json"] = str(save_json(manifest_extension, outdir / "run_manifest.json"))
+    paths["run_manifest.json"] = str(
+        save_json(manifest_extension, outdir / "run_manifest.json")
+    )
     return paths
 
 
@@ -519,7 +654,15 @@ def sensitivity_minirun_binary_features(
     work = normalize_binary_like(work)
     n = len(work)
     if n == 0 or work.shape[1] == 0:
-        return pd.DataFrame(columns=["run", "n_rows", "mean_entropy", "median_prevalence", "constant_feature_fraction"])
+        return pd.DataFrame(
+            columns=[
+                "run",
+                "n_rows",
+                "mean_entropy",
+                "median_prevalence",
+                "constant_feature_fraction",
+            ]
+        )
     rows = []
     idx = np.arange(n)
     k = max(2, int(round(n * subsample_fraction)))
@@ -530,11 +673,19 @@ def sensitivity_minirun_binary_features(
         ent = pd.to_numeric(fi["entropy_bits"], errors="coerce")
         prev = pd.to_numeric(fi["prevalence_present"], errors="coerce")
         constv = pd.to_numeric(fi["constant_feature"], errors="coerce").astype(float)
-        rows.append({
-            "run": r + 1,
-            "n_rows": int(len(sub)),
-            "mean_entropy": (float(ent.dropna().mean()) if ent.notna().any() else math.nan),
-            "median_prevalence": (float(prev.dropna().median()) if prev.notna().any() else math.nan),
-            "constant_feature_fraction": (float(constv.dropna().mean()) if constv.notna().any() else math.nan),
-        })
+        rows.append(
+            {
+                "run": r + 1,
+                "n_rows": int(len(sub)),
+                "mean_entropy": (
+                    float(ent.dropna().mean()) if ent.notna().any() else math.nan
+                ),
+                "median_prevalence": (
+                    float(prev.dropna().median()) if prev.notna().any() else math.nan
+                ),
+                "constant_feature_fraction": (
+                    float(constv.dropna().mean()) if constv.notna().any() else math.nan
+                ),
+            }
+        )
     return pd.DataFrame(rows)

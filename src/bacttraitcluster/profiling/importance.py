@@ -26,6 +26,7 @@ Novel contributions
     relative to global prevalence, with Fisher exact fallback for small
     clusters or rare features, and FDR correction.
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,6 +40,7 @@ from statsmodels.stats.multitest import multipletests
 logger = logging.getLogger(__name__)
 
 # ── SHAP importance ──────────────────────────────────────────────────────
+
 
 def shap_importance(
     X: pd.DataFrame,
@@ -91,8 +93,9 @@ def shap_importance(
         Xb, yb = X.values[idx], labels[idx]
         if len(np.unique(yb)) < 2:
             continue
-        mdl = LGBMClassifier(n_estimators=100, max_depth=5,
-                             random_state=seed + b, verbosity=-1, n_jobs=1)
+        mdl = LGBMClassifier(
+            n_estimators=100, max_depth=5, random_state=seed + b, verbosity=-1, n_jobs=1
+        )
         mdl.fit(Xb, yb)
         bg = Xb[rng.choice(len(Xb), min(n_bg, len(Xb)), replace=False)]
         ex = shap.TreeExplainer(mdl, bg)
@@ -110,16 +113,25 @@ def shap_importance(
 
     rows = []
     for (f, c), vals in store.items():
-        if not vals: continue
+        if not vals:
+            continue
         a = np.array(vals)
-        rows.append({"Feature": f, "Cluster": c,
-                      "SHAP_Mean": round(a.mean(), 5),
-                      "CI_Lo": round(np.percentile(a, 2.5), 5),
-                      "CI_Hi": round(np.percentile(a, 97.5), 5)})
-    return pd.DataFrame(rows).sort_values(["Cluster", "SHAP_Mean"], ascending=[True, False])
+        rows.append(
+            {
+                "Feature": f,
+                "Cluster": c,
+                "SHAP_Mean": round(a.mean(), 5),
+                "CI_Lo": round(np.percentile(a, 2.5), 5),
+                "CI_Hi": round(np.percentile(a, 97.5), 5),
+            }
+        )
+    return pd.DataFrame(rows).sort_values(
+        ["Cluster", "SHAP_Mean"], ascending=[True, False]
+    )
 
 
 # ── Topological Data Analysis ────────────────────────────────────────────
+
 
 def persistent_homology(
     X: np.ndarray,
@@ -142,29 +154,44 @@ def persistent_homology(
         fin = dgm[np.isfinite(dgm[:, 1])]
         betti[dim] = len(fin)
         if len(fin):
-            lt = fin[:, 1] - fin[:, 0]; lt = lt[lt > 0]
-            tp = float(lt.sum()); total_pers[dim] = tp
+            lt = fin[:, 1] - fin[:, 0]
+            lt = lt[lt > 0]
+            tp = float(lt.sum())
+            total_pers[dim] = tp
             if tp > 0:
                 p = lt / tp
                 pers_ent[dim] = float(-np.sum(p * np.log(p + 1e-15)))
             else:
                 pers_ent[dim] = 0.0
         else:
-            total_pers[dim] = 0.0; pers_ent[dim] = 0.0
+            total_pers[dim] = 0.0
+            pers_ent[dim] = 0.0
         for b, d in dgm:
-            pairs.append({"Dim": dim, "Birth": float(b),
-                          "Death": float(d) if np.isfinite(d) else np.inf})
-    return {"betti": betti, "total_persistence": total_pers,
-            "persistence_entropy": pers_ent, "diagram": pd.DataFrame(pairs)}
+            pairs.append(
+                {
+                    "Dim": dim,
+                    "Birth": float(b),
+                    "Death": float(d) if np.isfinite(d) else np.inf,
+                }
+            )
+    return {
+        "betti": betti,
+        "total_persistence": total_pers,
+        "persistence_entropy": pers_ent,
+        "diagram": pd.DataFrame(pairs),
+    }
 
 
 # ── Cliff's delta ────────────────────────────────────────────────────────
 
+
 def _cliff(x: np.ndarray, y: np.ndarray) -> float:
-    if len(x) == 0 or len(y) == 0: return 0.0
+    if len(x) == 0 or len(y) == 0:
+        return 0.0
     gt = sum(1 for xi in x for yj in y if xi > yj)
     lt = sum(1 for xi in x for yj in y if xi < yj)
     return (gt - lt) / (len(x) * len(y))
+
 
 def cliff_delta_table(
     X: pd.DataFrame,
@@ -184,21 +211,36 @@ def cliff_delta_table(
             d = _cliff(inc, exc)
             ds = []
             for _ in range(n_boot):
-                ds.append(_cliff(rng.choice(inc, len(inc), True),
-                                 rng.choice(exc, len(exc), True)))
+                ds.append(
+                    _cliff(
+                        rng.choice(inc, len(inc), True), rng.choice(exc, len(exc), True)
+                    )
+                )
             da = np.array(ds)
-            mag = ("large" if abs(d) >= .474 else
-                   "medium" if abs(d) >= .33 else
-                   "small" if abs(d) >= .147 else "negligible")
-            rows.append({"Feature": f, "Cluster": cl,
-                         "Delta": round(d, 4),
-                         "CI_Lo": round(np.percentile(da, alpha/2*100), 4),
-                         "CI_Hi": round(np.percentile(da, (1-alpha/2)*100), 4),
-                         "Magnitude": mag})
+            mag = (
+                "large"
+                if abs(d) >= 0.474
+                else "medium"
+                if abs(d) >= 0.33
+                else "small"
+                if abs(d) >= 0.147
+                else "negligible"
+            )
+            rows.append(
+                {
+                    "Feature": f,
+                    "Cluster": cl,
+                    "Delta": round(d, 4),
+                    "CI_Lo": round(np.percentile(da, alpha / 2 * 100), 4),
+                    "CI_Hi": round(np.percentile(da, (1 - alpha / 2) * 100), 4),
+                    "Magnitude": mag,
+                }
+            )
     return pd.DataFrame(rows)
 
 
 # ── enrichment z-scores ──────────────────────────────────────────────────
+
 
 def enrichment_z(
     X: pd.DataFrame,
@@ -243,11 +285,11 @@ def enrichment_z(
                 # Fisher exact on 2×2 table: [cluster, rest] × [resistant, susceptible]
                 n_total = len(labels)
                 n_rest = n_total - nc
-                a = int(round(pc * nc))            # resistant in cluster
-                b = nc - a                          # susceptible in cluster
+                a = int(round(pc * nc))  # resistant in cluster
+                b = nc - a  # susceptible in cluster
                 c = int(round(p_global * n_total)) - a  # resistant outside
                 c = max(0, c)
-                d = n_rest - c                      # susceptible outside
+                d = n_rest - c  # susceptible outside
                 d = max(0, d)
                 table = np.array([[a, b], [c, d]], dtype=int)
                 try:
@@ -257,18 +299,24 @@ def enrichment_z(
                     pv = np.nan
                 # back-calculate z for display (signed by direction)
                 sign = 1.0 if pc >= p_global else -1.0
-                z = sign * abs(float(norm.ppf(pv / 2 + 1e-15))) if (np.isfinite(pv) and pv > 0) else 0.0
+                z = (
+                    sign * abs(float(norm.ppf(pv / 2 + 1e-15)))
+                    if (np.isfinite(pv) and pv > 0)
+                    else 0.0
+                )
                 test_used = "fisher"
 
-            rows.append({
-                "Feature": f,
-                "Cluster": cl,
-                "Prev_Global": round(p_global, 4),
-                "Prev_Cluster": round(pc, 4),
-                "Z": round(float(z), 4),
-                "P": pv,
-                "Test": test_used,
-            })
+            rows.append(
+                {
+                    "Feature": f,
+                    "Cluster": cl,
+                    "Prev_Global": round(p_global, 4),
+                    "Prev_Cluster": round(pc, 4),
+                    "Z": round(float(z), 4),
+                    "P": pv,
+                    "Test": test_used,
+                }
+            )
 
     df = pd.DataFrame(rows)
     ok = df["P"].notna()
